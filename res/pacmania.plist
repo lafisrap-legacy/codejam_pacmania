@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>pacball.png</key>
+            <dict>
+                <key>frame</key>
+                <string>{{2,2},{298,298}}</string>
+                <key>offset</key>
+                <string>{0,1}</string>
+                <key>rotated</key>
+                <false/>
+                <key>sourceColorRect</key>
+                <string>{{1,0},{298,298}}</string>
+                <key>sourceSize</key>
+                <string>{300,300}</string>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>2</integer>
+            <key>realTextureFileName</key>
+            <string>pacmania.png</string>
+            <key>size</key>
+            <string>{302,302}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:9fb9bbc998d887a3c1df25317c31b354:1ff757adc0c8bddfe74cc2c65c663717:9bbfb0dd8bf0f99a0d6f415b5121b59b$</string>
+            <key>textureFileName</key>
+            <string>pacmania.png</string>
+        </dict>
+    </dict>
+</plist>
