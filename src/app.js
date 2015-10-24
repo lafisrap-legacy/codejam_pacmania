@@ -6,12 +6,12 @@ var PM_PacBallSize = 300,
 	PM_COLL_TYPE_OBJECT = 2,
     PM_Space = null,
     PM_BallColors = [
-        cc.color(100,0,0),
-        cc.color(0,0,100),
+        cc.color(100,0,0),        cc.color(0,0,100),
         cc.color(0,100,0),
         cc.color(100,100,0),
         cc.color(100,0,100),
-    ];
+    ],
+    PM_CapNames = ["berlin", "chimay", "guiness", "leffe", "roch", "wine"];
 
 var PacBall = cc.PhysicsSprite.extend({
 
@@ -19,12 +19,15 @@ var PacBall = cc.PhysicsSprite.extend({
 	_pacball: null,
 	_shape: null,
     _size: 0.2,
+    _capName: "",
 
 	// ctor calls the parent class with appropriate parameter
-    ctor: function(pos, rotation, color) {
+    ctor: function(pos, rotation, cap) {
         cc.PhysicsSprite.prototype.ctor.call(this);
         
-		var frame = cc.spriteFrameCache.getSpriteFrame("pacball.png");
+		var capName = this._capName = PM_CapNames[cap],
+            frame = cc.spriteFrameCache.getSpriteFrame(capName+"2.png");
+
         this.initWithSpriteFrame(frame);
 		this.setAnchorPoint(0.50,0.50);
 		var radius = PM_PacBallSize * this._size / 2,
@@ -37,7 +40,7 @@ var PacBall = cc.PhysicsSprite.extend({
 
 		this.setBody(pb);
         this.setPosition(pos);
-        this.setColor(color);
+        //this.setColor(color);
         this.setScale(this._size);
         this.setRotation(rotation);
 	},
@@ -46,7 +49,7 @@ var PacBall = cc.PhysicsSprite.extend({
 
 var PacManiaLayer = cc.Layer.extend({
     _space: null,
-    _pacBalls: [], 
+    _pacBalls: {}, 
     _newLeftKey: null,
     _colorId: 0,
 
@@ -54,6 +57,7 @@ var PacManiaLayer = cc.Layer.extend({
         //////////////////////////////
         // 1. super init first
         this._super();
+        var self = this;
 
         cc.width  = cc.winSize.width;
         cc.height = cc.winSize.height;
@@ -65,75 +69,75 @@ var PacManiaLayer = cc.Layer.extend({
         sp.sleepTimeThreshold = 0.5;
         sp.collisionSlop = 0.5;
 
-	    cc.spriteFrameCache.addSpriteFrames(res.pacmania_plist);
+	    cc.spriteFrameCache.addSpriteFrames(res.caps_plist);
 
         this.addWorldObjects();
 		
         this.scheduleUpdate();
-        this.initListeners();
+        //this.initListeners();
+
+        var table = new cc.Sprite(cc.spriteFrameCache.getSpriteFrame("wood.jpg"));
+        table.setPosition(cc.width/2, cc.height/2);
+        this.addChild(table,0);
+
+        $WS.connect("ws://192.168.2.236:4022/socket", function() {
+            $WS.sendMessage({
+                Command: "connectPlayground"
+            }, function(message) {
+                cc.log(message);
+            });
+        }, function(message) {
+            var pid = message.Pid,
+                ball = self._pacBalls[pid];
+
+            switch(message.Command) {
+                case "JumpIn": 
+                    var rot = Math.floor(Math.random()*360-180);
+
+                    self._colorId = (++self._colorId) % PM_BallColors.length;
+                    self.addPacBall(pid, cc.p(400,225), Math.random()*360, PM_BallColors[self._colorId]);
+
+                    var ball = self._pacBalls[pid];
+                    ball.shouldBeRotation = rot;
+                    break;
+                case "leftButtonDown":
+                    ball.keyLeftPressed = true;
+                    break;
+                case "leftButtonUp":
+                    ball.keyLeftPressed = false;
+                    break;
+                case "rightButtonDown":
+                    ball.keyRightPressed = true;
+                    break;
+                case "rightButtonUp":
+                    ball.keyRightPressed = false;
+                    break;
+            }
+        });
+
         return true;
     },
 
-    addPacBall: function(pos, rotation, color) {
-        var pb = new PacBall(pos, rotation, color);
+    addPacBall: function(pid, pos, rotation) {
 
+        cap = pid%PM_CapNames.length;
+
+        var pb = new PacBall(pos, rotation, cap);
+
+        pb._pid = pid;
 		pb.getBody().applyImpulse(cp.v( Math.sin(PM_rad(rotation))*2000, Math.cos(PM_rad(rotation))*2000 ),cp.v(0,0));
-        this._pacBalls.push(pb);
+        this._pacBalls[pid] = pb;
         this.addChild(pb);
     },
 
-    initListeners: function() {
-        var self = this;
-        this._keyboardListener = cc.EventListener.create({
-            event: cc.EventListener.KEYBOARD,
-            onKeyPressed:function(key, event) {
-                var pbs = self._pacBalls,
-                    consumed = false;
-                for( var i=0 ; i<pbs.length ; i++ ) {
-                    if( pbs[i].keyLeft === key ) {
-                        pbs[i].keyLeftPressed = true;
-                        consumed = true;
-                    }
-                    else if( pbs[i].keyRight === key ) {
-                        pbs[i].keyRightPressed = true;
-                        consumed = true;
-                    }
-                }
-                if( !consumed ) {
-                    if( !self._newLeftKey ) self._newLeftKey = key;
-                    else {
-                        var rot = Math.floor(Math.random()*360-180);
-                        self._colorId = (++self._colorId) % PM_BallColors.length;
-                        self.addPacBall(cc.p(400,225), Math.random()*360, PM_BallColors[self._colorId]);
-                        pbs[i].keyLeft = self._newLeftKey;
-                        pbs[i].keyRight = key;
-                        pbs[i].shouldBeRotation = rot;
-                        self._newLeftKey = null;
-                    }
-                }
-            },
-            onKeyReleased:function(key, event) {
-                var pbs = self._pacBalls;
-                for( var i=0 ; i<pbs.length ; i++ ) {
-                    if( pbs[i].keyLeft === key ) {
-                        pbs[i].keyLeftPressed = false;
-                    }
-                    else if( pbs[i].keyRight === key ) {
-                        pbs[i].keyRightPressed = false;
-                    }
-                }
-            }
-        }, this);
-        
-        cc.eventManager.addListener(this._keyboardListener, this);
-    },
-    
-    //////////////////////////////////////////////////////////////////////////////////////
-    // Stopps touch and keyboard events
-    //
-    stopListeners: function() {
-        if( this._touchListener ) cc.eventManager.removeListener(this._touchListener);
-        if( this._keyboardListener ) cc.eventManager.removeListener(this._keyboardListener);
+    removePacBall: function(pid) {
+        PM_Space.removeBody(this._pacBalls[pid].getBody());
+        this.removeChild(this._pacBalls[pid]);
+        delete this._pacBalls[pid];
+        $WS.sendMessage({
+            Command: "throwOut",
+            Pid: pid, 
+        });
     },
 
     rotate: function(pacBall, amount) {
@@ -158,46 +162,49 @@ var PacManiaLayer = cc.Layer.extend({
 
         PM_Space.step(dt);
         
-        for( var i=0 ; i<pbs.length ; i++ ) {
-            var vel = pbs[i].getBody().getVel(),
+        for( var pid in pbs ) {
+
+            var ball = pbs[pid];
+
+            var vel = ball.getBody().getVel(),
                 speed = Math.sqrt(vel.x*vel.x+vel.y*vel.y);
         
             // speed balls up!
             if( speed < 100 ) {
-                var rot = pbs[i].getRotation(),
+                var rot = ball.getRotation(),
                     x = Math.sin(PM_rad(rot)) * 1,
                     y = Math.cos(PM_rad(rot)) * 1;
 
                 vel.x += x;
                 vel.y += y;
-                pbs[i].getBody().setVel(vel);
+                ball.getBody().setVel(vel);
             }
 
             // slow them down or rotate them with keys
-            if( pbs[i].keyLeftPressed && pbs[i].keyRightPressed ) {
+            if( ball.keyLeftPressed && ball.keyRightPressed ) {
                 vel.x *= 0.9;
                 vel.y *= 0.9;
-                pbs[i].getBody().setVel(vel); 
-            } else if( pbs[i].keyLeftPressed ) {
-                this.rotate(pbs[i], -4);
-            } else if( pbs[i].keyRightPressed ) {
-                this.rotate(pbs[i],  4);
+                ball.getBody().setVel(vel); 
+            } else if( ball.keyLeftPressed ) {
+                this.rotate(ball, -4);
+            } else if( ball.keyRightPressed ) {
+                this.rotate(ball,  4);
             }
 
             // rotate them automatically
-            var rot = pbs[i].getRotation();
-            if(  pbs[i].shouldBeRotation != rot ) {
-                var dist = Math.abs( pbs[i].shouldBeRotation - rot ),
-                    dir = pbs[i].shouldBeRotation < pbs[i].getRotation()? -1:1;
+            var rot = ball.getRotation();
+            if(  ball.shouldBeRotation != rot ) {
+                var dist = Math.abs( ball.shouldBeRotation - rot ),
+                    dir = ball.shouldBeRotation < ball.getRotation()? -1:1;
 
                 if( dist > 180 ) dir = -dir;
-                if( dist < 5 ) rot = pbs[i].shouldBeRotation;
+                if( dist < 5 ) rot = ball.shouldBeRotation;
                 else rot += 5 * dir;
 
                 if( rot > 180 ) rot -= 360;
                 if( rot < -180 ) rot += 360;
 
-                pbs[i].setRotation(rot);
+                ball.setRotation(rot);
             } 
         }
     },
@@ -223,18 +230,20 @@ var PacManiaLayer = cc.Layer.extend({
 
         var correctRotation = function(arb) {
             var pbs = self._pacBalls;
-            for( var i=0 ; i<pbs.length ; i++ ) {
-                if( arb.body_a === pbs[i].getBody()) {
+            for( ballId in pbs ) {
+                var ball = pbs[ballId];
+
+                if( arb.body_a === ball.getBody()) {
                     var vel = arb.body_a.getVel(),
                         newAngle = PM_deg( Math.atan2(vel.x, vel.y) );
 
-                    pbs[i].shouldBeRotation = newAngle;
+                    ball.shouldBeRotation = newAngle;
                 }
-                if( arb.body_b === pbs[i].getBody()) {
+                if( arb.body_b === ball.getBody()) {
                     var vel = arb.body_b.getVel(),
                         newAngle = PM_deg( Math.atan2(vel.x, vel.y) );
                     
-                    pbs[i].shouldBeRotation = newAngle;
+                    ball.shouldBeRotation = newAngle;
                 }
             }
         };
@@ -247,11 +256,52 @@ var PacManiaLayer = cc.Layer.extend({
                     angle = PM_deg( Math.atan2(cPos.x - pos.x, cPos.y - pos.y) );
 
                 if( Math.abs(angle - rot) < 45 ) {
-                    cc.log("HIT!");
                     pacBall.runAction(
                         cc.sequence(
                             cc.EaseSineIn.create(cc.scaleTo(0.3,pacBall._size * 1.3)),
-                            cc.EaseSineOut.create(cc.scaleTo(0.3, pacBall._size))
+                            cc.callFunc(function() {
+                                pacBall._size *= 1.2;
+                                if( pacBall._size > 0.5 ) pacBall._size = 0.5;
+
+                                var radius = PM_PacBallSize * pacBall._size / 2;
+                                PM_Space.removeShape(pacBall._shape);
+                                circle = pacBall._shape = PM_Space.addShape(new cp.CircleShape(pacBall.getBody(), radius, cp.v(0, 0)));
+                                circle.setElasticity(1);
+                                circle.setFriction(0);      
+                                circle.setCollisionType(PM_COLL_TYPE_OBJECT);
+
+                                frameId = pacBall._size < 0.1? 1 : pacBall._size < 0.35? 2 : 3;
+                                var frame = cc.spriteFrameCache.getSpriteFrame(pacBall._capName+frameId+".png");
+                                pacBall.setSpriteFrame(frame);
+
+                                pacBall.runAction(cc.EaseSineOut.create(cc.scaleTo(0.3, pacBall._size)));
+                            })
+                        )
+                    );
+                } else {
+                    pacBall.runAction(
+                        cc.sequence(
+                            cc.EaseSineIn.create(cc.scaleTo(0.3,pacBall._size / 1.3)),
+                            cc.callFunc(function() {
+                                pacBall._size /= 1.2;
+                                if( pacBall._size < 0.05 ) {
+                                    pacBall._size = 0.05;
+                                    self.removePacBall( pacBall._pid );
+                                }
+
+                                var radius = PM_PacBallSize * pacBall._size / 2;
+                                PM_Space.removeShape(pacBall._shape);
+                                circle = pacBall._shape = PM_Space.addShape(new cp.CircleShape(pacBall.getBody(), radius, cp.v(0, 0)));
+                                circle.setElasticity(1);
+                                circle.setFriction(0);      
+                                circle.setCollisionType(PM_COLL_TYPE_OBJECT);
+
+                                frameId = pacBall._size < 0.1? 1 : pacBall._size < 0.35? 2 : 3;
+                                var frame = cc.spriteFrameCache.getSpriteFrame(pacBall._capName+frameId+".png");
+                                pacBall.setSpriteFrame(frame);
+
+                                pacBall.runAction(cc.EaseSineOut.create(cc.scaleTo(0.3, pacBall._size)));
+                            })
                         )
                     );
                 }
@@ -262,9 +312,11 @@ var PacManiaLayer = cc.Layer.extend({
             var pbs = self._pacBalls,
                 cPos = arb.contacts[0].p;
 
-            for( var i=0 ; i<pbs.length ; i++ ) {
-                checkCollision(arb.body_a, cPos, pbs[i]);
-                checkCollision(arb.body_b, cPos, pbs[i]);
+            for( ballId in pbs ) {
+                var ball = pbs[ballId];
+
+                checkCollision(arb.body_a, cPos, ball);
+                checkCollision(arb.body_b, cPos, ball);
             }
 
             //cc.log(arb.contacts);

@@ -1,7 +1,5 @@
 var res = {
-    pacmania_plist: "res/pacmania.plist",
-    pacabove_png : "res/pacabove.png",
-    pacbelow_png : "res/pacbelow.png",
+    caps_plist: "res/caps/caps.plist",
 };
 
 var g_resources = [];

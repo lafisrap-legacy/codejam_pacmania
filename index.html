@@ -1,29 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-    <meta charset="utf-8">
-    <title>Cocos2d-html5 Hello World test</title>
-    <link rel="icon" type="image/GIF" href="res/favicon.ico"/>
-    <meta name="viewport" content="width=480, initial-scale=1">
-    <meta name="apple-mobile-web-app-capable" content="yes"/>
-    <meta name="full-screen" content="yes"/>
-    <meta name="screen-orientation" content="portrait"/>
-    <meta name="x5-fullscreen" content="true"/>
-    <meta name="360-fullscreen" content="true"/>
-    <style>
-        body, canvas, div {
-            -moz-user-select: none;
-            -webkit-user-select: none;
-            -ms-user-select: none;
-            -khtml-user-select: none;
-            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-        }
-    </style>
+<title>Pacmania 0.1</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="static/css/bootstrap.min.css">
+<link rel="stylesheet" href="static/css/bootstrap-theme.min.css">
+<link rel="stylesheet" href="static/css/spielplatz.css">
+<script src="static/js/jquery-2.1.4.min.js"></script>
+<script src="static/js/bootstrap.min.js"></script>
+<script src="src/websockets.js"></script>
+<style>
+.btn-xlarge {
+    padding: 18px 28px;
+    font-size: 22px; //change this to your desired size
+    line-height: normal;
+    -webkit-border-radius: 8px;
+       -moz-border-radius: 8px;
+            border-radius: 8px;
+}
+</style>
 </head>
-<body style="padding:0; margin: 0; background: #000;">
-<script src="res/loading.js"></script>
-<canvas id="gameCanvas" width="480" height="720"></canvas>
-<script src="frameworks/cocos2d-html5/CCBoot.js"></script>
-<script cocos src="main.js"></script>
+<body>
+<div class="container" style="height: 1024px;">
+    <div class="jumbotron">
+        <h1 class="text-center">PAC MANIA</h1> 
+        <p id="subtitle" class="text-center">Websocket Server not connected.</p> 
+        <div class="text-center">
+            <button id="startbutton" type="button" class="btn btn-success">Jump into game!</button>
+            <div id="instructions">
+                <div>Press 'h' to turn left, 'l' to turn right.</div>
+                <button id="leftbutton" type="button" class="btn btn-xlarge btn-default">-/ LEFT -</button>
+                <button id="rightbutton" type="button" class="btn btn-xlarge btn-default">- RIGHT -</button>
+        </div>
+    </div>
+</div>
+<script>
+    var inTheGame = false;
+
+    $("#startbutton").hide();
+    $("#instructions").hide();
+    $WS.connect("ws://192.168.2.236:4022/socket", function() {
+        $("#subtitle").text("Websockets server connected. Waiting for game server.");
+        $WS.sendMessage({
+            Command: "getStatus"
+        }, function(message) {
+            if( message.Result === "connected") {
+                $("#subtitle").text("Connected to game server.");                
+                $("#startbutton").fadeIn();
+            } else {
+                $("#subtitle").text("No game server found.");
+            }
+        });
+    }, function(message) {
+        $("#instructions").fadeOut();
+        $("#startbutton").fadeIn();
+    });
+
+    $("#startbutton").on("click", function(e) {
+        $("#startbutton").fadeOut();
+        $WS.sendMessage({
+            Command: "jumpIn"
+        }, function(message) {
+            $("#instructions").fadeIn();
+            inTheGame = true;
+        });
+
+    });
+
+    $(window).on("keyup", function(e) {
+        switch(e.which) {
+            case 72:
+                $WS.sendMessage({ Command: "leftButtonUp" });
+                break;
+            case 76:
+                $WS.sendMessage({ Command: "rightButtonUp" });
+                break;
+            break;
+        }
+    });
+
+    $(window).on("keydown", function(e) {
+        switch(e.which) {
+            case 72:
+                $WS.sendMessage({ Command: "leftButtonDown" });
+                break;
+            case 76:
+                $WS.sendMessage({ Command: "rightButtonDown" });
+                break;
+            break;
+        }
+    });
+
+    $("#leftbutton").on("touchstart mousedown", function(e) { 
+        $WS.sendMessage({ Command: "leftButtonDown" });
+    }).on("touchend mouseup", function(e) { 
+        $WS.sendMessage({ Command: "leftButtonUp" });
+    });
+
+    $("#rightbutton").on("touchstart mousedown", function(e) { 
+        $WS.sendMessage({ Command: "rightButtonDown"}); 
+    }).on("touchend mouseup", function(e) { 
+        $WS.sendMessage({ Command: "rightButtonUp"}); 
+    });
+
+</script>
 </body>
 </html>
